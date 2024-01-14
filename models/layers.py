@@ -15,37 +15,37 @@ os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 ## Adaptive Augmentation
 ########################################    
 class adaptiveAugmentation(nn.Module):
-    def __init__(self, device, channels, n_query,n_his, num_nodes, num_source):
+    def __init__(self, device, channels, n_query,n_his, num_nodes, num_modals):
         super(adaptiveAugmentation, self).__init__()
         self.channels = channels
         self.n_query = n_query
         self.c = channels
         self.t = n_his
         self.n = num_nodes
-        self.s = num_source
+        self.m = num_modals
         self.att = nn.Conv2d(in_channels = self.channels, out_channels = self.n_query, kernel_size = (1,1))
         self.agg = nn.AvgPool2d(kernel_size=(self.n_query, 1), stride=1)
-        # TTS Embedding
+        # STM Embedding
         self.temporal_embedding = nn.Parameter(torch.randn(channels, n_his), requires_grad=True).to(device)
         nn.init.xavier_normal_(self.temporal_embedding)
-        self.location_embedding = nn.Parameter(torch.randn(channels, num_nodes), requires_grad=True).to(device)
-        nn.init.xavier_normal_(self.location_embedding)
-        self.source_embedding = nn.Parameter(torch.randn(channels, num_source), requires_grad=True).to(device)
-        nn.init.xavier_normal_(self.source_embedding)
+        self.spatial_embedding = nn.Parameter(torch.randn(channels, num_nodes), requires_grad=True).to(device)
+        nn.init.xavier_normal_(self.spatial_embedding)
+        self.modality_embedding = nn.Parameter(torch.randn(channels, num_modals), requires_grad=True).to(device)
+        nn.init.xavier_normal_(self.modality_embedding)
         # Linear proj.
         self.proj = nn.Sequential(
             nn.Conv3d(in_channels = 2*channels, out_channels = channels, kernel_size = (1,1,1)),
             nn.ReLU())
         
-    def get_ttse(self):
-        ttse = self.temporal_embedding.reshape(1,self.c,1,1,self.t) + self.location_embedding.reshape(1,self.c,1,self.n,1) + self.source_embedding.reshape(1,self.c,self.s,1,1)
-        return ttse
+    def get_stme(self):
+        stme = self.temporal_embedding.reshape(1,self.c,1,1,self.t) + self.spatial_embedding.reshape(1,self.c,1,self.n,1) + self.modality_embedding.reshape(1,self.c,self.m,1,1)
+        return stme
     
     def augmentation(self, x, sim, percent=0.1):
         """Generate the data augumentation from source attribute perspective."""
         x = x.permute(0,3,2,1,4)
-        b,n,s = sim.shape
-        mask_num = int(b * n * s * percent)        
+        b,n,m = sim.shape
+        mask_num = int(b * n * m * percent)        
         aug_x = copy.deepcopy(x)
 
         mask_prob = (1. - sim.reshape(-1)).numpy()              
@@ -54,8 +54,8 @@ class adaptiveAugmentation(nn.Module):
         if np.logical_or.reduce(np.isnan(mask_prob)):
             raise ValueError("probabilities contain a value that is not a number")
         
-        x, y, z = np.meshgrid(range(b), range(n), range(s), indexing='ij')
-        mask_list = np.random.choice(b * n * s, size=mask_num, p=mask_prob)
+        x, y, z = np.meshgrid(range(b), range(n), range(m), indexing='ij')
+        mask_list = np.random.choice(b * n * m, size=mask_num, p=mask_prob)
         
         zeros = torch.zeros_like(aug_x[0, 0, 0])        
         aug_x[
@@ -65,17 +65,18 @@ class adaptiveAugmentation(nn.Module):
         return aug_x.permute(0,3,2,1,4)
     
     def forward(self, x, rep):
-        b, c, s, n, _ = rep.shape
-        rep = rep.permute(0,1,3,4,2).reshape(b,c,-1,s)
+        b, c, m, n, _ = rep.shape
+        rep = rep.permute(0,1,3,4,2).reshape(b,c,-1,m)
         # calculate the attention matrix A using key x
         A = self.att(rep)    
         A = torch.softmax(A, dim=-1)  
         # calculate the source simlarity (prob)
-        A = torch.einsum('bqls->lbqs', A) 
+        A = torch.einsum('bqlm->lbqm', A) 
         sim = self.agg(A).squeeze(2).permute(1,0,2) 
         # get the data augmentation
         aug_x = self.augmentation(x.detach(), sim.detach().cpu())
-        ttse = self.get_ttse().repeat(b,1,1,1,1)
+        stme = self.get_stme().repeat(b,1,1,1,1)
+        aug = self.proj(torch.cat((aug_x, stme), dim=1))
         return aug
 
 ##########################################################
@@ -107,11 +108,11 @@ class GHE(nn.Module):
                 
     def get_GaussianPara(self, rep):
         '''
-        :param rep: representation, [b,c,s,n,t]
+        :param rep: representation, [b,c,m,n,t]
         :return alphas: priori probability, [b,k]
         :return sigmas, mus: Gaussian parameters, [b,k,c]
         '''
-        b, c, s, n, _ = rep.shape
+        b, c, m, n, _ = rep.shape
         alphas = self.alpha(rep.reshape(b,-1))  
         mus = self.mu(rep.permute(0,2,3,4,1).reshape(b,-1,c))
         sigmas = torch.exp(self.sigma(rep.permute(0,2,3,4,1).reshape(b,-1,c)))        
@@ -119,9 +120,9 @@ class GHE(nn.Module):
     
     def get_logPdf(self, rep, mus, sigmas):
         '''
-        :param rep: representation, [b,c,s*n*t]
+        :param rep: representation, [b,c,m*n*t]
         :param sigmas, mus: Gaussian parameters, [b,c,k]
-        return log_component_prob: log PDF, [b, s*n*t, k]
+        return log_component_prob: log PDF, [b, m*n*t, k]
         '''
         h = rep.unsqueeze(-1)
         mus = mus.unsqueeze(2)
@@ -132,9 +133,9 @@ class GHE(nn.Module):
         
     def get_cluAssignment(self, log_prob):
         '''
-        :param log_prob: log PDF, [b, s*n*t, k]
-        :return weightedlogPdf: [b, s*n*t, k]
-        :return clusters: [b, s*n*t]
+        :param log_prob: log PDF, [b, m*n*t, k]
+        :return weightedlogPdf: [b, m*n*t, k]
+        :return clusters: [b, m*n*t]
         '''
         log_sum = torch.log(torch.sum(log_prob.exp(), dim=-1, keepdim=True))        
         weightedlogPdf = log_prob - log_sum
@@ -143,7 +144,7 @@ class GHE(nn.Module):
         
     def forward(self, rep, rep_aug):
         """Compute the contrastive loss of batched data."""
-        b, c, s, n, _ = rep_aug.shape        
+        b, c, m, n, _ = rep_aug.shape        
         rep = self.l2norm(rep)
         rep_aug = self.l2norm(rep_aug)
         alphas_aug, mus_aug, sigmas_aug = self.get_GaussianPara(rep_aug)
@@ -158,10 +159,10 @@ class GHE(nn.Module):
 ## Cross-Modality Contrastive Learning (CMCL)
 ##########################################################
 class CMCL(nn.Module):
-    def __init__(self, channels, num_nodes, num_source, device):
+    def __init__(self, channels, num_nodes, num_modals, device):
         super(CMCL, self).__init__()
         self.device = device
-        self.flat_hidden = num_nodes * num_source
+        self.flat_hidden = num_nodes * num_modals
         self.W1 = nn.Parameter(torch.FloatTensor(self.flat_hidden, channels))
         self.W2 = nn.Parameter(torch.FloatTensor(self.flat_hidden, channels)) 
         nn.init.kaiming_uniform_(self.W1, a=math.sqrt(5))
@@ -181,25 +182,25 @@ class CMCL(nn.Module):
                 
     def fusion(self, rep, rep_aug):
         '''
-        :param rep: representation form original input, [b,c,s,n,t]
-        :param rep_aug: representation form augmentation, [b,c,s,n,t]
-        :return h: fusion representation, [b,s,n,c]
-        :return gs: global representation, [b,n,c]
+        :param rep: representation form original input, [b,c,m,n,t]
+        :param rep_aug: representation form augmentation, [b,c,m,n,t]
+        :return h: fusion representation, [b,m,n,c]
+        :return gs: global representation, [b,m,c]
         '''
-        b, c, s, n, _ = rep.shape
+        b, c, m, n, _ = rep.shape
         rep = rep.permute(0,2,3,4,1).reshape(b,-1,c)
         rep_aug = rep_aug.permute(0,2,3,4,1).reshape(b,-1,c)
-        h = (rep * self.W1 + rep_aug * self.W2).reshape(b,s,n,c) 
+        h = (rep * self.W1 + rep_aug * self.W2).reshape(b,m,n,c) 
         # global source representation
-        gs = torch.mean(h, dim=2)   # g: [b,s,c]
+        gs = torch.mean(h, dim=2)
         gs = self.sigmoid(gs)
         return h, gs
     
     def pn_sampling(self, h):
         '''
-        :param h: fusion representation, [b,s,n,c]
-        :return h: real hidden representation (w.r.t g), [b,s,n,c]
-        :return shuf_h: fake hidden representation, [b,s,n,c]
+        :param h: fusion representation, [b,m,n,c]
+        :return h: real hidden representation (w.r.t g), [b,m,n,c]
+        :return shuf_h: fake hidden representation, [b,m,n,c]
         '''
         idx = torch.randperm(h.size(1))
         shuf_h = h[:,idx,:,:]
@@ -208,9 +209,9 @@ class CMCL(nn.Module):
     def discriminator(self, gs, h_rl, h_fk):
         '''
         :param gs: global representation, [b,n,c]
-        :param h_rl: real hidden representation (w.r.t g), [b,s,n,c]
-        :param h_fk: fake hidden representation, [b,s,n,c]
-        :return logits: prediction scores, [b,s,n,2]
+        :param h_rl: real hidden representation (w.r.t g), [b,m,n,c]
+        :param h_fk: fake hidden representation, [b,m,n,c]
+        :return logits: prediction scores, [b,m,n,2]
         '''        
         gs = torch.unsqueeze(gs, dim=2) 
         gs = gs.expand_as(h_rl).contiguous()  
@@ -222,18 +223,17 @@ class CMCL(nn.Module):
     
     def cal_loss(self, logits):
         '''
-        :param logits: prediction scores, [b,s,n,2]
+        :param logits: prediction scores, [b,m,n,2]
         :return loss: contrastive loss
         '''  
         b,s,n,_ = logits.shape
-        l_rl = torch.ones(b,s,n,1)
-        l_fk = torch.zeros(b,s,n,1)        
+        l_rl = torch.ones(b,m,n,1)
+        l_fk = torch.zeros(b,m,n,1)        
         l = torch.cat((l_rl, l_fk), dim=-1).to(self.device)
         loss = self.logits_loss(logits, l)
         return loss
     
     def forward(self, rep, rep_aug):
-        b, c, s, n, _ = rep.shape
         # get fusion representation h and globle representation gs
         h, gs = self.fusion(rep, rep_aug)
         # positive and negative pair sampling
