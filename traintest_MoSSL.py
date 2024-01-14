@@ -16,7 +16,7 @@ np.random.seed(1337)
 torch.backends.cudnn.benchmark = True
 
 def get_model():  
-    model = MoSSL(device, args.num_comp, args.num_nodes, args.num_sources, args.input_length, args.horizon, args.hidden_channels, layers, args.indim).to(device)
+    model = MoSSL(device, args.num_comp, args.num_nodes, args.num_modals, args.input_length, args.horizon, args.hidden_channels, layers, args.indim).to(device)
     return model
 
 def prepare_x_y(x, y):
@@ -91,8 +91,8 @@ def traintest_model(dataset):
         print('=' * 80)
         print('Epoch {}: train_loss: {:.3f} [{:.3f},{:.3f}]; lr: {:.4f}; {:.1f}s'.format(
         epoch, train_loss, train_reg_loss, train_fea_loss, optimizer.param_groups[0]['lr'], (end_time - start_time)))            
-        for i in range(args.num_sources):
-            print('Source {}:'.format(i))
+        for i in range(args.num_modals):
+            print('Modality {}:'.format(i))
             print('Horizon 1 Hour| MAE: {:.2f}, {:.2f}; RMSE: {:.2f}, {:.2f};'
                   .format(mae_val[0, i], mae_test[0, i], rmse_val[0, i], rmse_test[0, i]))
             print('Horizon 2 Hour| MAE: {:.2f}, {:.2f}; RMSE: {:.2f}, {:.2f};'
@@ -115,8 +115,8 @@ def traintest_model(dataset):
     model.load_state_dict(torch.load(save_model_path))
     mae_val, rmse_val, mae_test, rmse_test = modelInference(model, dataset)
     print('=' * 20 + 'Best model performance' + '=' * 20)
-    for i in range(args.num_sources):
-        print('Source {}:'.format(i))
+    for i in range(args.num_modals):
+        print('Modality {}:'.format(i))
         print('Horizon 1 Hour| MAE: {:.2f}, {:.2f}; RMSE: {:.2f}, {:.2f};'
               .format(mae_val[0, i], mae_test[0, i], rmse_val[0, i], rmse_test[0, i]))
         print('Horizon 2 Hour| MAE: {:.2f}, {:.2f}; RMSE: {:.2f}, {:.2f};'
@@ -128,12 +128,12 @@ def traintest_model(dataset):
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_name', default = 'MoSSL', type=str, help = 'model name')
 parser.add_argument('--data_name', default = 'NYC', type=str, help = 'NYC')
-parser.add_argument('--num_nodes', default=98, type=int, help='num_nodes')
-parser.add_argument('--num_sources', default=4, type=int, help='num_sources')
+parser.add_argument('--num_nodes', default=98, type=int, help='number of nodes')
+parser.add_argument('--num_modals', default=4, type=int, help='number of modalities')
 parser.add_argument('--input_length', default = 16, type=int, help = 'input time steps')
 parser.add_argument('--horizon', default = 3, type=int, help = 'horizons')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
-parser.add_argument('--num_comp', default = 6, type=int, help = 'number of clusters K')
+parser.add_argument('--num_comp', default = 6, type=int, help = 'number of clusters')
 parser.add_argument('--hidden_channels', default = 24, type=int, help = 'hidden channels')
 parser.add_argument('--batch_size', default = 16, type=int, help='batch size')
 parser.add_argument("--patience", default=15, type=int, help="patience used for early stop")
@@ -169,8 +169,8 @@ print("loading data...")
 if args.data_name == 'NYC':
     n_train, n_val, n_test = 81, 5, 5
     args.num_nodes = 98
-    args.num_sources = 4
-    dataset = data_gen('data/NYC.h5', (n_train, n_val, n_test), args.num_nodes, args.input_length + args.horizon, args.num_sources, day_slot=48)
+    args.num_modals = 4
+    dataset = data_gen('data/NYC.h5', (n_train, n_val, n_test), args.num_nodes, args.input_length + args.horizon, args.num_modals, day_slot=48)
 #######################################
 def main():    
     print('=' * 10)
