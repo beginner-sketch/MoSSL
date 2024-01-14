@@ -24,19 +24,19 @@ class Dataset(object):
     def z_inverse(self, type):
         return self.__data[type] * self.std + self.mean
 
-def seq_gen(len_seq, data_seq, offset, n_frame, n_route, n_source, day_slot, C_0=1):
+def seq_gen(len_seq, data_seq, offset, n_frame, n_route, n_modal, day_slot, C_0=1):
     n_slot = day_slot
 
-    tmp_seq = np.zeros((len_seq * n_slot, n_frame, n_route,  n_source, C_0))
+    tmp_seq = np.zeros((len_seq * n_slot, n_frame, n_route,  n_modal, C_0))
     for i in range(len_seq):
         for j in range(n_slot):
             end = (i + offset) * day_slot + j + 1
             sta = end - n_frame
             if sta >= 0:
-                tmp_seq[i * n_slot + j, :, :, :, :] = np.reshape(data_seq[sta:end, :, :], [n_frame, n_route, n_source, C_0])
+                tmp_seq[i * n_slot + j, :, :, :, :] = np.reshape(data_seq[sta:end, :, :], [n_frame, n_route, n_modal, C_0])
     return tmp_seq
 
-def data_gen(file_path, data_config, n_route, n_frame=21, n_source=4, day_slot=288):
+def data_gen(file_path, data_config, n_route, n_frame=21, n_modal=4, day_slot=288):
     n_train, n_val, n_test = data_config
     # generate training, validation and test data
     try:
@@ -45,10 +45,10 @@ def data_gen(file_path, data_config, n_route, n_frame=21, n_source=4, day_slot=2
     except FileNotFoundError:
         print(f'ERROR: input file was not found in {file_path}.')
     print("DATA SIZE: ", data_seq.shape)
-    seq_train = seq_gen(n_train, data_seq, 0, n_frame, n_route, n_source, day_slot)
+    seq_train = seq_gen(n_train, data_seq, 0, n_frame, n_route, n_modal, day_slot)
     seq_train = seq_train[n_frame:]
-    seq_val = seq_gen(n_val, data_seq, n_train, n_frame, n_route,  n_source, day_slot)
-    seq_test = seq_gen(n_test, data_seq, n_train + n_val, n_frame, n_route,  n_source, day_slot)
+    seq_val = seq_gen(n_val, data_seq, n_train, n_frame, n_route,  n_modal, day_slot)
+    seq_test = seq_gen(n_test, data_seq, n_train + n_val, n_frame, n_route,  n_modal, day_slot)
     # x_stats: dict, the stats for the train dataset, including the value of mean and standard deviation.      
     x_stats = {'mean': np.mean(seq_train), 'std': np.std(seq_train)}
     x_train = z_score(seq_train, x_stats['mean'], x_stats['std'])
