@@ -1,12 +1,9 @@
-from __future__ import print_function
 import os
 import time
 from datetime import datetime
 import sys
 import argparse
 import numpy as np
-import math
-import torchvision
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -142,8 +139,8 @@ parser.add_argument("--epsilon", default=1e-3, type=float, help="optimizer epsil
 parser.add_argument("--steps", default=[50, 100], type=eval, help="steps")
 parser.add_argument("--lr_decay_ratio", default=0.1, type=float, help="lr_decay_ratio")
 parser.add_argument("--max_grad_norm", default=5, type=int, help="max_grad_norm")
-parser.add_argument('-version', default = 0, type=int, help='0-4')
-parser.add_argument('cuda', default = 1, type=int, help='0-1')
+parser.add_argument('-version', default = 0, type=int, help='index of repeated experiments')
+parser.add_argument('cuda', default = 1, type=int, help='cuda name')
 args = parser.parse_args() 
 device = torch.device("cuda:{}".format(args.cuda)) if torch.cuda.is_available() else torch.device("cpu")
 layers = int(np.log2(args.input_length))
