@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     
 ########################################
-## Adaptive Augmentation
+## Modality-Driven Adaptive Augmentation
 ########################################    
 class adaptiveAugmentation(nn.Module):
     def __init__(self, device, channels, n_query,n_his, num_nodes, num_modals):
@@ -37,12 +37,13 @@ class adaptiveAugmentation(nn.Module):
             nn.Conv3d(in_channels = 2*channels, out_channels = channels, kernel_size = (1,1,1)),
             nn.ReLU())
         
-    def get_stme(self):
-        stme = self.temporal_embedding.reshape(1,self.c,1,1,self.t) + self.spatial_embedding.reshape(1,self.c,1,self.n,1) + self.modality_embedding.reshape(1,self.c,self.m,1,1)
-        return stme
+    def get_moste(self):
+        """Generate the MoST Embedding E."""
+        moste = self.temporal_embedding.reshape(1,self.c,1,1,self.t) + self.spatial_embedding.reshape(1,self.c,1,self.n,1) + self.modality_embedding.reshape(1,self.c,self.m,1,1)
+        return moste
     
     def augmentation(self, x, sim, percent=0.1):
-        """Generate the data augumentation from source attribute perspective."""
+        """Generate the modality-aware augumentation."""
         x = x.permute(0,3,2,1,4)
         b,n,m = sim.shape
         mask_num = int(b * n * m * percent)        
@@ -75,21 +76,22 @@ class adaptiveAugmentation(nn.Module):
         sim = self.agg(A).squeeze(2).permute(1,0,2) 
         # get the data augmentation
         aug_x = self.augmentation(x.detach(), sim.detach().cpu())
-        stme = self.get_stme().repeat(b,1,1,1,1)
-        aug = self.proj(torch.cat((aug_x, stme), dim=1))
+        # get the MoST embedding
+        moste = self.get_moste().repeat(b,1,1,1,1)
+        aug = self.proj(torch.cat((aug_x, moste), dim=1))
         return aug
 
 ##########################################################
-## Global Heterogeneity Extractor (GHE)
+## Global Heterogeneity Learning (GHL)
 ##########################################################
 LOG2PI = math.log(2 * math.pi)
-class GHE(nn.Module):
+class GHL(nn.Module):
     def __init__(self, in_features, channels, num_comp):
-        super(GHE, self).__init__()
+        super(GHL, self).__init__()
         self.in_features = in_features
         self.num_comp = num_comp
         self.l2norm = lambda x: F.normalize(x, dim=1, p=2)
-        self.alpha = nn.Sequential(
+        self.gamma = nn.Sequential(
             nn.Linear(in_features*channels, num_comp, bias=False),
             nn.Softmax(dim=-1)
         )
@@ -109,14 +111,14 @@ class GHE(nn.Module):
     def get_GaussianPara(self, rep):
         '''
         :param rep: representation, [b,c,m,n,t]
-        :return alphas: priori probability, [b,k]
-        :return sigmas, mus: Gaussian parameters, [b,k,c]
+        :return gammas: membership score, [b,k]
+        :return sigmas, mus: Gaussian parameters (mean and variance), [b,k,c]
         '''
         b, c, m, n, _ = rep.shape
-        alphas = self.alpha(rep.reshape(b,-1))  
+        gammas = self.gamma(rep.reshape(b,-1))  
         mus = self.mu(rep.permute(0,2,3,4,1).reshape(b,-1,c))
         sigmas = torch.exp(self.sigma(rep.permute(0,2,3,4,1).reshape(b,-1,c)))        
-        return alphas.unsqueeze(1), mus.permute(0,2,1), sigmas.permute(0,2,1)
+        return gammas.unsqueeze(1), mus.permute(0,2,1), sigmas.permute(0,2,1)
     
     def get_logPdf(self, rep, mus, sigmas):
         '''
@@ -131,36 +133,25 @@ class GHE(nn.Module):
         # torch.prod(log_component_prob, 1) may cause inf
         return self.l2norm(torch.prod(log_component_prob, 1))
         
-    def get_cluAssignment(self, log_prob):
-        '''
-        :param log_prob: log PDF, [b, m*n*t, k]
-        :return weightedlogPdf: [b, m*n*t, k]
-        :return clusters: [b, m*n*t]
-        '''
-        log_sum = torch.log(torch.sum(log_prob.exp(), dim=-1, keepdim=True))        
-        weightedlogPdf = log_prob - log_sum
-        clusters = torch.argmax(weightedlogPdf,dim=-1).float()                 
-        return clusters, weightedlogPdf
-        
     def forward(self, rep, rep_aug):
         """Compute the contrastive loss of batched data."""
         b, c, m, n, _ = rep_aug.shape        
         rep = self.l2norm(rep)
         rep_aug = self.l2norm(rep_aug)
-        alphas_aug, mus_aug, sigmas_aug = self.get_GaussianPara(rep_aug)
-        # get log Pdf   
+        gammas_aug, mus_aug, sigmas_aug = self.get_GaussianPara(rep_aug)
+        # get log Pdf with the original representation H as a self-supervised signal
         log_component_prob_aug = self.get_logPdf(rep.reshape(b,c,-1), mus_aug, sigmas_aug)  
-        log_prob_aug = log_component_prob_aug + torch.log(alphas_aug)
+        log_prob_aug = log_component_prob_aug + torch.log(gammas_aug)
         # calculate loss
         loss = -torch.mean(torch.log(torch.sum(log_prob_aug.exp(), dim=-1)))
         return loss
 
 ##########################################################
-## Cross-Modality Contrastive Learning (CMCL)
+## Cross-Modality Heterogeneity Learning (CMHL)
 ##########################################################
-class CMCL(nn.Module):
+class CMHL(nn.Module):
     def __init__(self, channels, num_nodes, num_modals, device):
-        super(CMCL, self).__init__()
+        super(CMHL, self).__init__()
         self.device = device
         self.flat_hidden = num_nodes * num_modals
         self.W1 = nn.Parameter(torch.FloatTensor(self.flat_hidden, channels))
@@ -182,19 +173,19 @@ class CMCL(nn.Module):
                 
     def fusion(self, rep, rep_aug):
         '''
-        :param rep: representation form original input, [b,c,m,n,t]
-        :param rep_aug: representation form augmentation, [b,c,m,n,t]
+        :param rep: original representation, [b,c,m,n,t]
+        :param rep_aug: augmented representation, [b,c,m,n,t]
         :return h: fusion representation, [b,m,n,c]
-        :return gs: global representation, [b,m,c]
+        :return cm: unified modality representation, [b,m,c]
         '''
         b, c, m, n, _ = rep.shape
         rep = rep.permute(0,2,3,4,1).reshape(b,-1,c)
         rep_aug = rep_aug.permute(0,2,3,4,1).reshape(b,-1,c)
         h = (rep * self.W1 + rep_aug * self.W2).reshape(b,m,n,c) 
-        # global source representation
-        gs = torch.mean(h, dim=2)
-        gs = self.sigmoid(gs)
-        return h, gs
+        # unified modality representation
+        cm = torch.mean(h, dim=2)
+        cm = self.sigmoid(cm)
+        return h, cm
     
     def pn_sampling(self, h):
         '''
@@ -206,25 +197,25 @@ class CMCL(nn.Module):
         shuf_h = h[:,idx,:,:]
         return h, shuf_h
         
-    def discriminator(self, gs, h_rl, h_fk):
+    def get_logits(self, cm, h_rl, h_fk):
         '''
-        :param gs: global representation, [b,n,c]
+        :param cm: unified modality representation, [b,m,c]
         :param h_rl: real hidden representation (w.r.t g), [b,m,n,c]
         :param h_fk: fake hidden representation, [b,m,n,c]
         :return logits: prediction scores, [b,m,n,2]
         '''        
-        gs = torch.unsqueeze(gs, dim=2) 
-        gs = gs.expand_as(h_rl).contiguous()  
+        cm = torch.unsqueeze(cm, dim=2) 
+        cm = cm.expand_as(h_rl).contiguous()  
         # score of real and fake
-        sc_rl = self.net(h_rl.contiguous(), gs.contiguous())
-        sc_fk = self.net(h_fk.contiguous(), gs.contiguous())
+        sc_rl = self.net(h_rl.contiguous(), cm.contiguous())
+        sc_fk = self.net(h_fk.contiguous(), cm.contiguous())
         logits = torch.cat((sc_rl, sc_fk), dim=-1)        
         return logits
     
     def cal_loss(self, logits):
         '''
         :param logits: prediction scores, [b,m,n,2]
-        :return loss: contrastive loss
+        :return loss: CMHL loss
         '''  
         b,s,n,_ = logits.shape
         l_rl = torch.ones(b,m,n,1)
@@ -234,11 +225,11 @@ class CMCL(nn.Module):
         return loss
     
     def forward(self, rep, rep_aug):
-        # get fusion representation h and globle representation gs
-        h, gs = self.fusion(rep, rep_aug)
+        # get the fusion representation h and the unified modality representation cm
+        h, cm = self.fusion(rep, rep_aug)
         # positive and negative pair sampling
         h_rl, h_fk = self.pn_sampling(h)    
         # calculate loss
-        logits = self.discriminator(gs, h_rl, h_fk)
+        logits = self.get_logits(cm, h_rl, h_fk)
         loss = self.cal_loss(logits)
         return loss
