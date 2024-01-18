@@ -12,11 +12,11 @@ warnings.filterwarnings("ignore")
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     
 ########################################
-## Modality-Driven Adaptive Augmentation
+## Multi-modality Data Augmentation (MDA)
 ########################################    
-class adaptiveAugmentation(nn.Module):
+class MDA(nn.Module):
     def __init__(self, device, channels, n_query,n_his, num_nodes, num_modals):
-        super(adaptiveAugmentation, self).__init__()
+        super(MDA, self).__init__()
         self.channels = channels
         self.n_query = n_query
         self.c = channels
@@ -82,12 +82,12 @@ class adaptiveAugmentation(nn.Module):
         return aug
 
 ##########################################################
-## Global Heterogeneity Learning (GHL)
+## Global Self-Supervised Learning (GSSL)
 ##########################################################
 LOG2PI = math.log(2 * math.pi)
-class GHL(nn.Module):
+class GSSL(nn.Module):
     def __init__(self, in_features, channels, num_comp):
-        super(GHL, self).__init__()
+        super(GSSL, self).__init__()
         self.in_features = in_features
         self.num_comp = num_comp
         self.l2norm = lambda x: F.normalize(x, dim=1, p=2)
@@ -134,7 +134,6 @@ class GHL(nn.Module):
         return self.l2norm(torch.prod(log_component_prob, 1))
         
     def forward(self, rep, rep_aug):
-        """Compute the contrastive loss of batched data."""
         b, c, m, n, _ = rep_aug.shape        
         rep = self.l2norm(rep)
         rep_aug = self.l2norm(rep_aug)
@@ -147,11 +146,11 @@ class GHL(nn.Module):
         return loss
 
 ##########################################################
-## Cross-Modality Heterogeneity Learning (CMHL)
+## Modality Self-Supervised Learning (MSSL)
 ##########################################################
-class CMHL(nn.Module):
+class MSSL(nn.Module):
     def __init__(self, channels, num_nodes, num_modals, device):
-        super(CMHL, self).__init__()
+        super(MSSL, self).__init__()
         self.device = device
         self.flat_hidden = num_nodes * num_modals
         self.W1 = nn.Parameter(torch.FloatTensor(self.flat_hidden, channels))
@@ -215,7 +214,7 @@ class CMHL(nn.Module):
     def cal_loss(self, logits):
         '''
         :param logits: prediction scores, [b,m,n,2]
-        :return loss: CMHL loss
+        :return loss: MSSL loss
         '''  
         b,s,n,_ = logits.shape
         l_rl = torch.ones(b,m,n,1)
