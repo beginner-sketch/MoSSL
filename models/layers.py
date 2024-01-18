@@ -71,7 +71,7 @@ class MDA(nn.Module):
         # calculate the attention matrix A using key x
         A = self.att(rep)    
         A = torch.softmax(A, dim=-1)  
-        # calculate the source simlarity (prob)
+        # calculate the modality simlarity (prob)
         A = torch.einsum('bqlm->lbqm', A) 
         sim = self.agg(A).squeeze(2).permute(1,0,2) 
         # get the data augmentation
