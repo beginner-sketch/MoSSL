@@ -25,7 +25,7 @@ class MDA(nn.Module):
         self.m = num_modals
         self.att = nn.Conv2d(in_channels = self.channels, out_channels = self.n_query, kernel_size = (1,1))
         self.agg = nn.AvgPool2d(kernel_size=(self.n_query, 1), stride=1)
-        # STM Embedding
+        # MoST Embedding
         self.temporal_embedding = nn.Parameter(torch.randn(channels, n_his), requires_grad=True).to(device)
         nn.init.xavier_normal_(self.temporal_embedding)
         self.spatial_embedding = nn.Parameter(torch.randn(channels, num_nodes), requires_grad=True).to(device)
