@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import sys
 import numpy as np
-from models.layers import adaptiveAugmentation, GHL, CMHL
+from models.layers import MDA, GSSL, MSSL
 from torchsummary import summary
 import warnings
 warnings.filterwarnings("ignore")
@@ -176,13 +176,13 @@ class MoSSL(nn.Module):
             nn.ReLU(),
             nn.Conv3d(in_channels = 2*channels, out_channels = n_pred, kernel_size = (1,1,1))
         )
-        # Modality-Driven Adaptive Augmentation
-        self.adaptiveAugmentation = adaptiveAugmentation(device, 2*channels, 2*channels,n_his, num_nodes, num_modals)
-        # Global Heterogeneity Learning (GHL)
+        # Multi-modality Data Augmentation
+        self.mda = MDA(device, 2*channels, 2*channels,n_his, num_nodes, num_modals)
+        # Global Self-Supervised Learning (GSSL)
         self.in_features = num_nodes*num_modals
-        self.ghl = GHL(self.in_features, 2*channels, num_comp)
-        # Cross-Modality Heterogeneity Learning (CMHL)
-        self.cmhl = CMHL(2*channels, num_nodes, num_modals, device)
+        self.gssl = GSSL(self.in_features, 2*channels, num_comp)
+        # Modality Self-Supervised Learning (MSSL)
+        self.mssl = MSSL(2*channels, num_nodes, num_modals, device)
         
     def forward(self, input):
         input = input.permute(0, 4, 3, 2, 1)
@@ -193,13 +193,13 @@ class MoSSL(nn.Module):
         rep = self.most_encoder(x)
         pred = self.predictor(rep)
         # Down-stream: the augmented view
-        # Generate the data augumentation
-        x_aug = self.adaptiveAugmentation(x, rep)
+        # Generate the Multi-modality Data Augmentation
+        x_aug = self.mda(x, rep)
         # Shared MoST Encoder
         rep_aug = self.most_encoder(x_aug)
-        # Global Heterogeneity Learning (GHL)
-        ghl_loss = self.ghl(rep, rep_aug)
-        # Cross-Modality Heterogeneity Learning (CMHL)
-        cmhl_loss = self.cmhl(rep, rep_aug)
-        loss = ghl_loss + cmhl_loss
+        # Global Self-Supervised Learning (GSSL)
+        gssl_loss = self.gssl(rep, rep_aug)
+        # Modality Self-Supervised Learning (MSSL)
+        mssl_loss = self.mssl(rep, rep_aug)
+        loss = gssl_loss + mssl_loss
         return pred.permute(0, 1, 3, 2, 4), loss
