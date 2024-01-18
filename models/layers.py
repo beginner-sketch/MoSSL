@@ -199,9 +199,9 @@ class MSSL(nn.Module):
     def get_logits(self, cm, h_rl, h_fk):
         '''
         :param cm: unified modality representation, [b,m,c]
-        :param h_rl: real hidden representation (w.r.t g), [b,m,n,c]
+        :param h_rl: real hidden representation, [b,m,n,c]
         :param h_fk: fake hidden representation, [b,m,n,c]
-        :return logits: prediction scores, [b,m,n,2]
+        :return logits: scores, [b,m,n,2]
         '''        
         cm = torch.unsqueeze(cm, dim=2) 
         cm = cm.expand_as(h_rl).contiguous()  
@@ -213,7 +213,7 @@ class MSSL(nn.Module):
     
     def cal_loss(self, logits):
         '''
-        :param logits: prediction scores, [b,m,n,2]
+        :param logits: scores, [b,m,n,2]
         :return loss: MSSL loss
         '''  
         b,s,n,_ = logits.shape
