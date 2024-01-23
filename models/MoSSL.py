@@ -91,7 +91,7 @@ class ResidualBlock(nn.Module):
         self.sa = SA(self.channels)
         # Modality-Attention Layer
         self.ma = MA(self.channels)
-        # Temporal Encoder
+        # Temporal Convolution
         self.filter_convs = nn.Conv3d(in_channels = self.num * self.channels, 
                                       out_channels = self.num_modals * self.channels, 
                                       kernel_size = (self.num_modals, 1, self.kernel_size),
@@ -114,7 +114,7 @@ class ResidualBlock(nn.Module):
         rep_list.append(rep_sou)
         rep_list.append(rep)
         rep = torch.cat(rep_list, dim=1) 
-        # Temporal Encoder (TE)
+        # Temporal Convolution (TC)
         filter = self.filter_convs(rep)
         b, _, _, n, t = filter.shape
         filter = torch.tanh(filter).reshape(b, -1, self.num_modals, n, t)
