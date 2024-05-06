@@ -216,7 +216,7 @@ class MSSL(nn.Module):
         :param logits: scores, [b,m,n,2]
         :return loss: MSSL loss
         '''  
-        b,s,n,_ = logits.shape
+        b,m,n,_ = logits.shape
         l_rl = torch.ones(b,m,n,1)
         l_fk = torch.zeros(b,m,n,1)        
         l = torch.cat((l_rl, l_fk), dim=-1).to(self.device)
