@@ -1,9 +1,11 @@
 # [IJCAI 2024] Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning
-Our research has been accepted for presentation at the main track of IJCAI 2024. This implementation showcases our MoSSL model. 
-
-Citation details will be provided once the official proceedings for IJCAI 2024 are available online.
+Our research has been accepted for presentation at the main track of IJCAI 2024. 
+This implementation showcases our MoSSL model. 
 
 ![image](https://github.com/beginner-sketch/MoSSL/blob/main/img/framework.png)
+
+# Citation
+Citation details will be provided once the official proceedings for IJCAI 2024 are available online.
 
 # Multi-Modality Spatio-Temporal Dataset
 NYC Traffic Demand dataset<sup id="a1">[[1]](#f1)</sup> is collected from the New York City, which consists of 98 nodes and four transportation modalities: Bike Inflow, Bike Outflow, Taxi Inflow, and Taxi Outflow. The timespan is from April 1st, 2016 to June 30th, 2016, and the time interval is set to half an hour.
