@@ -131,7 +131,7 @@ parser.add_argument('--input_length', default = 16, type=int, help = 'input time
 parser.add_argument('--horizon', default = 3, type=int, help = 'horizons')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
 parser.add_argument('--num_comp', default = 6, type=int, help = 'number of clusters')
-parser.add_argument('--hidden_channels', default = 24, type=int, help = 'hidden channels')
+parser.add_argument('--hidden_channels', default = 48, type=int, help = 'hidden channels')
 parser.add_argument('--batch_size', default = 16, type=int, help='batch size')
 parser.add_argument("--patience", default=15, type=int, help="patience used for early stop")
 parser.add_argument("--lr", default=0.01, type=float, help="base learning rate")
