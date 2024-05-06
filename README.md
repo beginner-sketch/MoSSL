@@ -28,7 +28,7 @@ Numpy >= 1.17.4
 Pandas >= 1.0.3
 ```
 
-## Model Training
+## Model Training and Testing
 ``` python
 python traintest_MoSSL.py cuda_name
 
