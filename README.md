@@ -1,5 +1,6 @@
 # [IJCAI 2024] Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning
 Our research has been accepted for presentation at the main track of IJCAI 2024. 
+
 This implementation showcases our MoSSL model. 
 
 ![image](https://github.com/beginner-sketch/MoSSL/blob/main/img/framework.png)
