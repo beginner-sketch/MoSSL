@@ -162,27 +162,27 @@ class MoSSL(nn.Module):
         super(MoSSL, self).__init__()
         # Linear Projection
         self.proj1 = nn.Sequential(
-            nn.Conv3d(in_channels = in_dim, out_channels = channels, kernel_size = (1,1,1)),
+            nn.Conv3d(in_channels = in_dim, out_channels = int(channels//2), kernel_size = (1,1,1)),
             nn.ReLU(),
-            nn.Conv3d(in_channels = channels, out_channels = 2*channels, kernel_size = (1,1,1)),
+            nn.Conv3d(in_channels = int(channels//2), out_channels = channels, kernel_size = (1,1,1)),
             nn.ReLU()
         )        
         # MoST Encoder
-        self.most_encoder = MoST_Encoder(layers, num_modals, num_nodes, 2*channels, kernel_size)
+        self.most_encoder = MoST_Encoder(layers, num_modals, num_nodes, channels, kernel_size)
         # Predictor
         self.predictor = nn.Sequential(
             nn.ReLU(),
-            nn.Conv3d(in_channels = 2*channels,out_channels = 2*channels,kernel_size = (1,1,1)),
+            nn.Conv3d(in_channels = channels,out_channels = channels,kernel_size = (1,1,1)),
             nn.ReLU(),
-            nn.Conv3d(in_channels = 2*channels, out_channels = n_pred, kernel_size = (1,1,1))
+            nn.Conv3d(in_channels = channels, out_channels = n_pred, kernel_size = (1,1,1))
         )
         # Multi-modality Data Augmentation
-        self.mda = MDA(device, 2*channels, 2*channels,n_his, num_nodes, num_modals)
+        self.mda = MDA(device, channels, channels,n_his, num_nodes, num_modals)
         # Global Self-Supervised Learning (GSSL)
         self.in_features = num_nodes*num_modals
-        self.gssl = GSSL(self.in_features, 2*channels, num_comp)
+        self.gssl = GSSL(self.in_features, channels, num_comp)
         # Modality Self-Supervised Learning (MSSL)
-        self.mssl = MSSL(2*channels, num_nodes, num_modals, device)
+        self.mssl = MSSL(channels, num_nodes, num_modals, device)
         
     def forward(self, input):
         input = input.permute(0, 4, 3, 2, 1)
