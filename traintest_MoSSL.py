@@ -52,6 +52,7 @@ def traintest_model(dataset):
     model = get_model()    
     file_name = "{}_{}_num_comp{}_hc{}_l{}_his{}_pred{}_v{}".format(args.model_name, args.data_name, args.num_comp, args.hidden_channels, layers, 
                                                                               args.input_length, args.horizon,args.version)    
+    os.makedirs('MODEL', exist_ok=True)
     save_model_path = os.path.join('MODEL', '{}.h5'.format(file_name))
     print('=' * 10)
     print("training and testing model...")
