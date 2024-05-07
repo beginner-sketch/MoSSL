@@ -7,7 +7,7 @@ This implementation showcases our MoSSL model.
 
 
 ## Preprint Link
-(https://arxiv.org/abs/2405.03255)
+[arXiv](https://arxiv.org/abs/2405.03255)
 
 ## Citation
 Citation details will be updated once the official proceedings for IJCAI 2024 are available online.
