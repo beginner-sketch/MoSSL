@@ -1,4 +1,7 @@
 # [IJCAI 2024] Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning
+
+**[IJCAI24] J. Deng, R. Jiang*, J. Zhang, X. Song*, "Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning", IJCAI, 2024. (*Corresponding author)**
+
 Our research has been accepted for presentation at the main track of IJCAI 2024. 
 
 This implementation showcases our MoSSL model. 
