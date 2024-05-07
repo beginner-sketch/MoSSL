@@ -34,7 +34,7 @@ BJ Air Quality dataset<sup id="a2">[[2]](#f2)</sup> is collected from the Beijin
 <span id="f2">2. [^](#a2)</span> https://archive.ics.uci.edu/ml/datasets/Beijing+Multi-Site+Air-Quality+Data
 
 ## Installation Dependencies
-``` python
+``` 
 Python 3 (>= 3.6; Anaconda Distribution)
 
 PyTorch (>= 1.6.0) 
@@ -45,6 +45,6 @@ Pandas >= 1.0.3
 ```
 
 ## Model Training and Testing
-``` python
+``` 
 python traintest_MoSSL.py cuda_name
-
+```
