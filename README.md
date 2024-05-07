@@ -15,6 +15,15 @@ This implementation showcases our MoSSL model.
 ## Citation
 Citation details will be updated once the official proceedings for IJCAI 2024 are available online.
 
+``` python
+@article{deng2024multimodality,
+  title={Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning},
+  author={Jiewen Deng and Renhe Jiang and Jiaqi Zhang and Xuan Song},
+  journal={arXiv preprint arXiv:2405.03255},
+  year={2024}
+}
+```
+
 ## Multi-Modality Spatio-Temporal Dataset
 NYC Traffic Demand dataset<sup id="a1">[[1]](#f1)</sup> is collected from the New York City, which consists of 98 nodes and four transportation modalities: Bike Inflow, Bike Outflow, Taxi Inflow, and Taxi Outflow. The timespan is from April 1st, 2016 to June 30th, 2016, and the time interval is set to half an hour.
 
