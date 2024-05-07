@@ -15,7 +15,7 @@ This implementation showcases our MoSSL model.
 ## Citation
 Citation details will be updated once the official proceedings for IJCAI 2024 are available online.
 
-``` python
+```
 @article{deng2024multimodality,
   title={Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning},
   author={Jiewen Deng and Renhe Jiang and Jiaqi Zhang and Xuan Song},
