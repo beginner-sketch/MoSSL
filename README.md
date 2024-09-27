@@ -54,5 +54,5 @@ Pandas >= 1.0.3
 
 ## Model Training and Testing
 ``` 
-python traintest_MoSSL.py cuda_name
+python traintest_MoSSL.py cuda_id
 ```
