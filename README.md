@@ -16,11 +16,19 @@
 **Citation details will be updated once the official proceedings for IJCAI 2024 are available online.**
 
 ```
-@article{deng2024multimodality,
-  title={Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning},
-  author={Jiewen Deng and Renhe Jiang and Jiaqi Zhang and Xuan Song},
-  journal={arXiv preprint arXiv:2405.03255},
-  year={2024}
+@inproceedings{ijcai2024p223,
+  title     = {Multi-Modality Spatio-Temporal Forecasting via Self-Supervised Learning},
+  author    = {Deng, Jiewen and Jiang, Renhe and Zhang, Jiaqi and Song, Xuan},
+  booktitle = {Proceedings of the Thirty-Third International Joint Conference on
+               Artificial Intelligence, {IJCAI-24}},
+  publisher = {International Joint Conferences on Artificial Intelligence Organization},
+  editor    = {Kate Larson},
+  pages     = {2018--2026},
+  year      = {2024},
+  month     = {8},
+  note      = {Main Track},
+  doi       = {10.24963/ijcai.2024/223},
+  url       = {https://doi.org/10.24963/ijcai.2024/223},
 }
 ```
 
